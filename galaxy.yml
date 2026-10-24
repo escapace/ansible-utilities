@@ -5,7 +5,7 @@ version: 0.0.0
 readme: README.md
 authors:
   - escapace
-description: Reusable Ansible filters.
+description: Reusable Ansible filters and GitHub request/download helper roles.
 tags:
   - tools
 license:

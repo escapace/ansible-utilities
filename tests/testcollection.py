@@ -48,6 +48,27 @@ class CollectionTests(unittest.TestCase):
             for excluded in ("tests", ".github", ".venv", "uv.lock", "pyproject.toml"):
                 self.assertFalse((installed / excluded).exists(), excluded)
 
+            self.assertTrue((installed / "vars/github_retry.yaml").is_file())
+            # Scope discovery to this collection. Per-role documentation lookup in
+            # Core 2.21 enumerates unrelated internal collections before filtering.
+            role_docs = json.loads(
+                run(
+                    "ansible-doc",
+                    "-t",
+                    "role",
+                    "--list",
+                    "--json",
+                    "escapace.utilities",
+                )
+            )
+            for name in ("github_request", "github_download"):
+                self.assertTrue(
+                    (installed / "roles" / name / "tasks/main.yaml").is_file()
+                )
+                self.assertTrue(
+                    role_docs["escapace.utilities." + name]["entry_points"]["main"]
+                )
+
             for name in ("github_metadata_retry", "github_archive_retry"):
                 fqcn = "escapace.utilities." + name
                 docs = json.loads(run("ansible-doc", "-t", "filter", "--json", fqcn))

@@ -1,0 +1,36 @@
+---
+argument_specs:
+  main:
+    short_description: download a checksum-verified github artifact with bounded retries
+    options:
+      github_download_url:
+        type: str
+        required: true
+        description:
+          - HTTPS artifact URL; HTTP loopback URLs are also accepted for local testing.
+          - Embedded credentials are not accepted.
+      github_download_dest:
+        type: path
+        required: true
+        description:
+          - Absolute managed-host file path, not a directory; its parent directory must exist.
+      github_download_checksum:
+        type: str
+        required: true
+        description:
+          - Required SHA-256 digest in sha256:<64 hexadecimal characters> form.
+      github_download_owner:
+        type: str
+        default: root
+        description:
+          - Destination owner name or numeric UID string.
+      github_download_group:
+        type: str
+        default: root
+        description:
+          - Destination group name or numeric GID string.
+      github_download_mode:
+        type: str
+        default: '0644'
+        description:
+          - Quoted four-digit octal file mode beginning with 0.

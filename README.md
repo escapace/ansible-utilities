@@ -1,8 +1,8 @@
 # escapace.utilities
 
-Reusable Ansible filters distributed directly from GitHub. Filters calculate
-values on the controller. They do not make HTTP requests, sleep, or modify
-their inputs or host facts.
+Reusable Ansible filters and helper roles distributed directly from GitHub.
+Filters calculate values on the controller without side effects. The GitHub
+helper roles perform requests and retry waits on the managed host.
 
 ## Install
 
@@ -19,6 +19,27 @@ Run `ansible-galaxy collection install -r requirements.yaml` from that project.
 The installer retrieves this collection from Git, not the Galaxy service.
 Reinstall to pick up changes on `trunk`; running a playbook does not update it.
 The metadata version stays `0.0.0`; the selected Git commit determines the code.
+
+## GitHub helper roles
+
+- [`escapace.utilities.github_request`](roles/github_request/README.md) retrieves
+  metadata, including JSON and checksum manifests, with rate-limit-aware retries.
+- [`escapace.utilities.github_download`](roles/github_download/README.md) downloads
+  an artifact using a required SHA-256 checksum and conservative HTTP retries.
+
+Both helpers allow four attempts and 90 seconds of cumulative retry waiting per
+invocation. They execute requests and waits on the managed host, not the
+controller. Each invocation has fresh per-host retry state.
+
+Invoke operations explicitly with `include_role`, `allow_duplicates: true`,
+and `public: false`; do not use metadata dependencies to trigger requests.
+Calls export separate host facts: `github_request_result` and
+`github_download_result`. Copy a result into a caller-owned variable before
+another call to the same helper. `public: false` does not hide exported facts,
+and registering `include_role` does not return the underlying module response.
+
+For loops that retain multiple results, put the helper invocation and result
+capture together in a caller-owned task file and loop over `include_tasks`.
 
 ## GitHub retry filters
 
@@ -89,5 +110,6 @@ exact names Ansible requires.
 
 Run `uv sync --locked`, `uv run python -W error -m unittest discover -s tests -v`,
 `uv run black --check plugins tests`, and `uv run ansible-lint --offline`.
-Tests cover retry decisions and install a
-temporary collection to verify namespaced loading and documentation.
+Tests install temporary collections to verify namespaced loading, repeated
+helper calls, retry decisions, HTTP response sequences, checksum verification,
+input validation, and check mode without contacting GitHub.

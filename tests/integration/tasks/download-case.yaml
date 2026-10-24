@@ -1,0 +1,49 @@
+---
+- name: exercise a local artifact response sequence
+  vars:
+    utilities_test_dest: '{{ utilities_test_directory }}/{{ inventory_hostname }}-{{ utilities_test_case.name }}'
+  block:
+    - name: call the installed download helper
+      block:
+        - name: download a checksum-verified test artifact
+          ansible.builtin.include_role:
+            name: escapace.utilities.github_download
+            allow_duplicates: true
+            public: false
+          vars:
+            github_download_url: 'http://127.0.0.1:{{ utilities_test_port }}/{{ utilities_test_case.name }}/{{ inventory_hostname }}'
+            github_download_dest: '{{ utilities_test_dest }}'
+            github_download_checksum: >-
+              {{ 'sha256:' ~ ('0' * 64) if utilities_test_case.name == 'archive-checksum'
+                 else utilities_test_checksum }}
+            github_download_owner: '{{ utilities_test_owner }}'
+            github_download_group: '{{ utilities_test_group }}'
+
+        - name: verify a successful download response
+          ansible.builtin.assert:
+            that:
+              - utilities_test_case.success
+              - not github_download_result.failed
+      rescue:
+        - name: verify an expected terminal download failure
+          ansible.builtin.assert:
+            that:
+              - not utilities_test_case.success
+              - ansible_failed_task.name == 'github_download report a terminal download failure'
+              - utilities_test_case.reason in ansible_failed_result.msg
+              - utilities_test_dest in ansible_failed_result.msg
+
+    - name: inspect the test destination
+      ansible.builtin.stat:
+        path: '{{ utilities_test_dest }}'
+        checksum_algorithm: sha256
+      register: utilities_test_artifact
+
+    - name: verify download persistence and failure boundaries
+      ansible.builtin.assert:
+        that:
+          - utilities_test_artifact.stat.exists == (utilities_test_case.success and not ansible_check_mode)
+          - >-
+            not utilities_test_artifact.stat.exists
+            or utilities_test_artifact.stat.checksum == utilities_test_checksum.split(':')[1]
+          - not utilities_test_artifact.stat.exists or utilities_test_artifact.stat.mode == '0644'

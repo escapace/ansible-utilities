@@ -1,0 +1,10 @@
+---
+- name: reject invalid helper inputs before any request
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: exercise invalid inputs
+      ansible.builtin.include_tasks: tasks/invalid-input-case.yaml
+      loop: '{{ utilities_test_cases }}'
+      loop_control:
+        loop_var: utilities_test_case

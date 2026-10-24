@@ -1,0 +1,30 @@
+---
+- name: exercise a local metadata response sequence
+  block:
+    - name: call the installed metadata helper
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_request
+        allow_duplicates: true
+        public: false
+      vars:
+        github_request_url: 'http://127.0.0.1:{{ utilities_test_port }}/{{ utilities_test_case.name }}/{{ inventory_hostname }}'
+        github_request_return_content: '{{ utilities_test_case.return_content | default(false) }}'
+
+    - name: verify successful metadata and preserved structured response
+      ansible.builtin.assert:
+        that:
+          - utilities_test_case.success
+          - github_request_result.status == 200
+          - github_request_result.json.host == inventory_hostname
+          - >-
+            not (utilities_test_case.return_content | default(false))
+            or (github_request_result.content | from_json).host == inventory_hostname
+
+  rescue:
+    - name: verify an expected terminal metadata failure
+      ansible.builtin.assert:
+        that:
+          - not utilities_test_case.success
+          - ansible_failed_task.name == 'github_request report a terminal github metadata failure'
+          - utilities_test_case.reason in ansible_failed_result.msg
+          - "'local server diagnostic' in ansible_failed_result.msg"

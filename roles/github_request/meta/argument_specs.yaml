@@ -1,0 +1,16 @@
+---
+argument_specs:
+  main:
+    short_description: request github metadata with bounded retries
+    options:
+      github_request_url:
+        type: str
+        required: true
+        description:
+          - HTTPS URL to request; HTTP loopback URLs are also accepted for local testing.
+          - Embedded credentials are not accepted.
+      github_request_return_content:
+        type: bool
+        default: false
+        description:
+          - Return raw response content in addition to structured JSON when available.

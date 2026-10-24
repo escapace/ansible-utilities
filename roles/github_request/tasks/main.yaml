@@ -1,0 +1,37 @@
+---
+- name: github_request validate input types
+  ansible.builtin.assert:
+    that:
+      - github_request_url is string
+      - github_request_url is ansible.builtin.url
+      - github_request_return_content is boolean
+    fail_msg: github_request_url must be a URL string and github_request_return_content must be a boolean.
+
+- name: github_request validate the endpoint
+  ansible.builtin.assert:
+    that:
+      - >-
+        (github_request_url | ansible.builtin.urlsplit('scheme')) == 'https'
+        or ((github_request_url | ansible.builtin.urlsplit('scheme')) == 'http'
+            and (github_request_url | ansible.builtin.urlsplit('hostname')) in ['localhost', '127.0.0.1', '::1'])
+      - (github_request_url | ansible.builtin.urlsplit('username')) is none
+      - (github_request_url | ansible.builtin.urlsplit('password')) is none
+    fail_msg: github_request_url must use HTTPS (or HTTP on loopback) without embedded credentials.
+
+# Both helper roles load this collection-owned policy rather than duplicate it.
+- name: github_request load retry limits
+  ansible.builtin.include_vars:
+    file: '{{ role_path | dirname | dirname }}/vars/github_retry.yaml'
+    name: _github_request_policy
+
+- name: github_request initialize this invocation
+  ansible.builtin.set_fact:
+    github_request_result: {}
+    _github_request_done: false
+    _github_request_waited_seconds: 0
+
+- name: github_request make bounded metadata attempts
+  ansible.builtin.include_tasks: attempt.yaml
+  loop: '{{ range(1, _github_request_policy.max_attempts + 1) | list }}'
+  loop_control:
+    loop_var: _github_request_attempt

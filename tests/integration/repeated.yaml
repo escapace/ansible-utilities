@@ -1,0 +1,53 @@
+---
+- name: exercise identical repeated and interleaved helper calls
+  hosts: all
+  gather_facts: false
+  vars:
+    github_request_url: 'http://127.0.0.1:{{ utilities_test_port }}/success/{{ inventory_hostname }}'
+    github_download_url: 'http://127.0.0.1:{{ utilities_test_port }}/archive-success/{{ inventory_hostname }}'
+    github_download_dest: '{{ utilities_test_directory }}/{{ inventory_hostname }}-repeated'
+    github_download_checksum: '{{ utilities_test_checksum }}'
+    github_download_owner: '{{ utilities_test_owner }}'
+    github_download_group: '{{ utilities_test_group }}'
+  tasks:
+    - name: request metadata the first time
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_request
+        allow_duplicates: true
+        public: false
+
+    - name: retain the first metadata result
+      ansible.builtin.set_fact:
+        utilities_test_first_metadata: '{{ github_request_result }}'
+
+    - name: download the artifact the first time
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_download
+        allow_duplicates: true
+        public: false
+
+    - name: retain the first download result
+      ansible.builtin.set_fact:
+        utilities_test_first_download: '{{ github_download_result }}'
+
+    - name: request metadata again with identical arguments
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_request
+        allow_duplicates: true
+        public: false
+
+    - name: download the artifact again with identical arguments
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_download
+        allow_duplicates: true
+        public: false
+
+    - name: verify fresh invocations and stable saved results
+      ansible.builtin.assert:
+        that:
+          - utilities_test_first_metadata.json.attempt == 1
+          - github_request_result.json.attempt == 2
+          - utilities_test_first_download.changed
+          - not github_download_result.changed
+          - github_request_return_content is not defined
+          - github_download_mode is not defined

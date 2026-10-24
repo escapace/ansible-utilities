@@ -1,0 +1,10 @@
+---
+- name: exercise installed github download retries without contacting github
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: exercise each artifact response sequence
+      ansible.builtin.include_tasks: tasks/download-case.yaml
+      loop: '{{ utilities_test_cases }}'
+      loop_control:
+        loop_var: utilities_test_case

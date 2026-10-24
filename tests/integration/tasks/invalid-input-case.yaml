@@ -1,0 +1,51 @@
+---
+- name: prepare a non-regular destination when needed
+  ansible.builtin.file:
+    path: '{{ utilities_test_directory }}/{{ inventory_hostname }}-invalid-{{ utilities_test_case.dest_kind }}'
+    src: "{{ utilities_test_directory if utilities_test_case.dest_kind == 'link' else omit }}"
+    state: '{{ utilities_test_case.dest_kind }}'
+    force: true
+    mode: '0700'
+  when: utilities_test_case.dest_kind is defined
+
+- name: reject invalid helper arguments
+  block:
+    - name: invoke the metadata helper with invalid input
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_request
+        allow_duplicates: true
+        public: false
+      vars:
+        github_request_url: >-
+          {{ utilities_test_case.url | default('http://127.0.0.1:' ~ utilities_test_port ~ '/success/' ~ inventory_hostname) }}
+        github_request_return_content: '{{ utilities_test_case.return_content | default(false) }}'
+      when: utilities_test_case.kind == 'request'
+
+    - name: invoke the download helper with invalid input
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_download
+        allow_duplicates: true
+        public: false
+      vars:
+        github_download_url: >-
+          {{ utilities_test_case.url | default('http://127.0.0.1:' ~ utilities_test_port ~ '/archive-success/' ~ inventory_hostname) }}
+        github_download_dest: >-
+          {{ (utilities_test_directory ~ '/missing/' ~ inventory_hostname)
+             if utilities_test_case.missing_parent | default(false)
+             else utilities_test_case.dest | default(utilities_test_directory ~ '/' ~ inventory_hostname
+                  ~ '-invalid-' ~ (utilities_test_case.dest_kind | default('file'))) }}
+        github_download_checksum: '{{ utilities_test_case.checksum | default(utilities_test_checksum) }}'
+        github_download_mode: "{{ utilities_test_case.mode | default('0644') }}"
+        github_download_owner: '{{ utilities_test_owner }}'
+        github_download_group: '{{ utilities_test_group }}'
+      when: utilities_test_case.kind == 'download'
+
+    - name: reject unexpectedly accepted helper input
+      ansible.builtin.fail:
+        msg: Invalid helper input was accepted.
+  rescue:
+    - name: verify input validation caused the failure
+      ansible.builtin.assert:
+        that:
+          - ansible_failed_task.name != 'reject unexpectedly accepted helper input'
+          - utilities_test_case.reason in ansible_failed_result.msg

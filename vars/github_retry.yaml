@@ -1,0 +1,3 @@
+---
+max_attempts: 4
+max_wait_seconds: 90
