@@ -16,6 +16,18 @@
       github_download requires a URL string, an absolute file destination, a SHA-256
       checksum, owner and group strings, and a quoted four-digit octal mode.
 
+- name: github_download validate the result variable name
+  ansible.builtin.assert:
+    that:
+      - github_download_result_var is string
+      - github_download_result_var is match('^[a-z][a-z0-9_]*_[a-z0-9_]+\\Z')
+      - >-
+        github_download_result_var is not match(
+          '^(ansible|inventory|playbook|role|group|github_request|github_download|escapace_utilities)(_|\\Z)')
+    fail_msg: >-
+      github_download_result_var must be a lowercase caller-prefixed variable name,
+      not an Ansible namespace, helper input, or collection-internal name.
+
 - name: github_download validate the endpoint
   ansible.builtin.assert:
     that:
@@ -31,40 +43,51 @@
   ansible.builtin.stat:
     path: '{{ github_download_dest }}'
     follow: false
-  register: _github_download_destination
+  register: _escapace_utilities_github_download_destination
 
 - name: github_download require a regular file destination or an absent path
   ansible.builtin.assert:
     that:
       - >-
-        not _github_download_destination.stat.exists
-        or _github_download_destination.stat.isreg | default(false)
+        not _escapace_utilities_github_download_destination.stat.exists
+        or _escapace_utilities_github_download_destination.stat.isreg | default(false)
     fail_msg: 'github_download_dest must be a regular file or absent: {{ github_download_dest }}.'
 
 - name: github_download inspect the parent directory
   ansible.builtin.stat:
     path: '{{ github_download_dest | dirname }}'
-  register: _github_download_parent
+  register: _escapace_utilities_github_download_parent
 
 - name: github_download require an existing parent directory
   ansible.builtin.assert:
     that:
-      - _github_download_parent.stat.isdir | default(false)
+      - _escapace_utilities_github_download_parent.stat.isdir | default(false)
     fail_msg: 'github_download_dest parent directory must exist: {{ github_download_dest | dirname }}.'
 
 - name: github_download load retry limits
   ansible.builtin.include_vars:
     file: '{{ role_path | dirname | dirname }}/vars/github_retry.yaml'
-    name: _github_download_policy
+    name: _escapace_utilities_github_download_policy
 
 - name: github_download initialize this invocation
   ansible.builtin.set_fact:
-    github_download_result: {}
-    _github_download_done: false
-    _github_download_waited_seconds: 0
+    _escapace_utilities_github_download_response: {}
+    _escapace_utilities_github_download_done: false
+    _escapace_utilities_github_download_waited_seconds: 0
 
 - name: github_download make bounded download attempts
   ansible.builtin.include_tasks: attempt.yaml
-  loop: '{{ range(1, _github_download_policy.max_attempts + 1) | list }}'
+  loop: '{{ range(1, _escapace_utilities_github_download_policy.max_attempts + 1) | list }}'
   loop_control:
-    loop_var: _github_download_attempt
+    loop_var: _escapace_utilities_github_download_attempt
+
+- name: github_download require a successful response before export
+  ansible.builtin.assert:
+    that:
+      - _escapace_utilities_github_download_done
+      - not _escapace_utilities_github_download_response.failed
+    fail_msg: github_download completed without a successful response.
+
+- name: github_download export the caller-owned result
+  ansible.builtin.set_fact:
+    '{{ github_download_result_var }}': '{{ _escapace_utilities_github_download_response }}'

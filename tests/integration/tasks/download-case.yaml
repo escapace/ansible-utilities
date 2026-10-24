@@ -11,6 +11,7 @@
             allow_duplicates: true
             public: false
           vars:
+            github_download_result_var: utilities_test_download
             github_download_url: 'http://127.0.0.1:{{ utilities_test_port }}/{{ utilities_test_case.name }}/{{ inventory_hostname }}'
             github_download_dest: '{{ utilities_test_dest }}'
             github_download_checksum: >-
@@ -23,7 +24,7 @@
           ansible.builtin.assert:
             that:
               - utilities_test_case.success
-              - not github_download_result.failed
+              - not utilities_test_download.failed
       rescue:
         - name: verify an expected terminal download failure
           ansible.builtin.assert:

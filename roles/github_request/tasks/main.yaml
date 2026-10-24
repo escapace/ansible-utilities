@@ -7,6 +7,18 @@
       - github_request_return_content is boolean
     fail_msg: github_request_url must be a URL string and github_request_return_content must be a boolean.
 
+- name: github_request validate the result variable name
+  ansible.builtin.assert:
+    that:
+      - github_request_result_var is string
+      - github_request_result_var is match('^[a-z][a-z0-9_]*_[a-z0-9_]+\\Z')
+      - >-
+        github_request_result_var is not match(
+          '^(ansible|inventory|playbook|role|group|github_request|github_download|escapace_utilities)(_|\\Z)')
+    fail_msg: >-
+      github_request_result_var must be a lowercase caller-prefixed variable name,
+      not an Ansible namespace, helper input, or collection-internal name.
+
 - name: github_request validate the endpoint
   ansible.builtin.assert:
     that:
@@ -22,16 +34,27 @@
 - name: github_request load retry limits
   ansible.builtin.include_vars:
     file: '{{ role_path | dirname | dirname }}/vars/github_retry.yaml'
-    name: _github_request_policy
+    name: _escapace_utilities_github_request_policy
 
 - name: github_request initialize this invocation
   ansible.builtin.set_fact:
-    github_request_result: {}
-    _github_request_done: false
-    _github_request_waited_seconds: 0
+    _escapace_utilities_github_request_response: {}
+    _escapace_utilities_github_request_done: false
+    _escapace_utilities_github_request_waited_seconds: 0
 
 - name: github_request make bounded metadata attempts
   ansible.builtin.include_tasks: attempt.yaml
-  loop: '{{ range(1, _github_request_policy.max_attempts + 1) | list }}'
+  loop: '{{ range(1, _escapace_utilities_github_request_policy.max_attempts + 1) | list }}'
   loop_control:
-    loop_var: _github_request_attempt
+    loop_var: _escapace_utilities_github_request_attempt
+
+- name: github_request require a successful response before export
+  ansible.builtin.assert:
+    that:
+      - _escapace_utilities_github_request_done
+      - not _escapace_utilities_github_request_response.failed
+    fail_msg: github_request completed without a successful response.
+
+- name: github_request export the caller-owned result
+  ansible.builtin.set_fact:
+    '{{ github_request_result_var }}': '{{ _escapace_utilities_github_request_response }}'

@@ -7,6 +7,7 @@
         allow_duplicates: true
         public: false
       vars:
+        github_request_result_var: utilities_test_metadata
         github_request_url: 'http://127.0.0.1:{{ utilities_test_port }}/{{ utilities_test_case.name }}/{{ inventory_hostname }}'
         github_request_return_content: '{{ utilities_test_case.return_content | default(false) }}'
 
@@ -14,11 +15,11 @@
       ansible.builtin.assert:
         that:
           - utilities_test_case.success
-          - github_request_result.status == 200
-          - github_request_result.json.host == inventory_hostname
+          - utilities_test_metadata.status == 200
+          - utilities_test_metadata.json.host == inventory_hostname
           - >-
             not (utilities_test_case.return_content | default(false))
-            or (github_request_result.content | from_json).host == inventory_hostname
+            or (utilities_test_metadata.content | from_json).host == inventory_hostname
 
   rescue:
     - name: verify an expected terminal metadata failure

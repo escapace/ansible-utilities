@@ -1,6 +1,6 @@
 ---
 - name: github_download attempt artifact retrieval
-  when: not _github_download_done
+  when: not _escapace_utilities_github_download_done
   block:
     - name: github_download download the artifact
       block:
@@ -15,19 +15,19 @@
             mode: '{{ github_download_mode }}'
             owner: '{{ github_download_owner }}'
             group: '{{ github_download_group }}'
-          register: _github_download_attempt_result
+          register: _escapace_utilities_github_download_attempt_result
       rescue:
         - name: github_download preserve the failed result for classification
           ansible.builtin.set_fact:
-            _github_download_attempt_result: '{{ ansible_failed_result }}'
+            _escapace_utilities_github_download_attempt_result: '{{ ansible_failed_result }}'
 
     - name: github_download classify the download result
       ansible.builtin.set_fact:
-        github_download_result: '{{ _github_download_attempt_result }}'
-        _github_download_plan: >-
-          {{ _github_download_attempt_result | escapace.utilities.github_archive_retry(_github_download_policy, {
-               'attempt': _github_download_attempt,
-               'waited_seconds': _github_download_waited_seconds,
+        _escapace_utilities_github_download_response: '{{ _escapace_utilities_github_download_attempt_result }}'
+        _escapace_utilities_github_download_plan: >-
+          {{ _escapace_utilities_github_download_attempt_result | escapace.utilities.github_archive_retry(_escapace_utilities_github_download_policy, {
+               'attempt': _escapace_utilities_github_download_attempt,
+               'waited_seconds': _escapace_utilities_github_download_waited_seconds,
                'now_epoch': now(utc=true).timestamp(),
                'jitter_seconds': [0, 1] | random
              }) }}
@@ -36,19 +36,19 @@
       ansible.builtin.fail:
         msg: >-
           GitHub download {{ github_download_url }} to {{ github_download_dest }} failed on
-          attempt {{ _github_download_attempt }}: {{ _github_download_plan.reason }}.
-          status={{ github_download_result.status_code | default('unavailable') }}.
-          {{ github_download_result.msg | default('') }} {{ github_download_result.response | default('') }}
-      when: _github_download_plan.action == 'fail'
+          attempt {{ _escapace_utilities_github_download_attempt }}: {{ _escapace_utilities_github_download_plan.reason }}.
+          status={{ _escapace_utilities_github_download_response.status_code | default('unavailable') }}.
+          {{ _escapace_utilities_github_download_response.msg | default('') }} {{ _escapace_utilities_github_download_response.response | default('') }}
+      when: _escapace_utilities_github_download_plan.action == 'fail'
 
     - name: github_download wait before the next attempt on this host
       ansible.builtin.wait_for:
-        timeout: '{{ _github_download_plan.delay_seconds }}'
+        timeout: '{{ _escapace_utilities_github_download_plan.delay_seconds }}'
       check_mode: false
-      when: _github_download_plan.action == 'retry'
+      when: _escapace_utilities_github_download_plan.action == 'retry'
 
     - name: github_download record download progress
       ansible.builtin.set_fact:
-        _github_download_done: "{{ _github_download_plan.action == 'success' }}"
-        _github_download_waited_seconds: >-
-          {{ (_github_download_waited_seconds | int) + (_github_download_plan.delay_seconds | default(0)) }}
+        _escapace_utilities_github_download_done: "{{ _escapace_utilities_github_download_plan.action == 'success' }}"
+        _escapace_utilities_github_download_waited_seconds: >-
+          {{ (_escapace_utilities_github_download_waited_seconds | int) + (_escapace_utilities_github_download_plan.delay_seconds | default(0)) }}

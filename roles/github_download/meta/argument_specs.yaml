@@ -3,6 +3,13 @@ argument_specs:
   main:
     short_description: download a checksum-verified github artifact with bounded retries
     options:
+      github_download_result_var:
+        type: str
+        required: true
+        description:
+          - Caller-owned host fact name receiving the successful module response.
+          - Use a lowercase caller prefix; Ansible and helper namespaces are reserved.
+          - Reusing a name replaces that fact only after a successful call.
       github_download_url:
         type: str
         required: true

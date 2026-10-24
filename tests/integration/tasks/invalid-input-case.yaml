@@ -16,6 +16,7 @@
         allow_duplicates: true
         public: false
       vars:
+        github_request_result_var: "{{ utilities_test_case.result_var | default('utilities_test_metadata') }}"
         github_request_url: >-
           {{ utilities_test_case.url | default('http://127.0.0.1:' ~ utilities_test_port ~ '/success/' ~ inventory_hostname) }}
         github_request_return_content: '{{ utilities_test_case.return_content | default(false) }}'
@@ -27,6 +28,7 @@
         allow_duplicates: true
         public: false
       vars:
+        github_download_result_var: "{{ utilities_test_case.result_var | default('utilities_test_download') }}"
         github_download_url: >-
           {{ utilities_test_case.url | default('http://127.0.0.1:' ~ utilities_test_port ~ '/archive-success/' ~ inventory_hostname) }}
         github_download_dest: >-

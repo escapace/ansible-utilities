@@ -1,5 +1,5 @@
 ---
-- name: exercise identical repeated and interleaved helper calls
+- name: exercise caller-owned results across repeated and interleaved calls
   hosts: all
   gather_facts: false
   vars:
@@ -10,44 +10,106 @@
     github_download_owner: '{{ utilities_test_owner }}'
     github_download_group: '{{ utilities_test_group }}'
   tasks:
-    - name: request metadata the first time
+    - name: request metadata for the first caller
       ansible.builtin.include_role:
         name: escapace.utilities.github_request
         allow_duplicates: true
         public: false
+      vars:
+        github_request_result_var: caller_one_metadata
 
-    - name: retain the first metadata result
-      ansible.builtin.set_fact:
-        utilities_test_first_metadata: '{{ github_request_result }}'
-
-    - name: download the artifact the first time
+    - name: download the artifact for the first caller
       ansible.builtin.include_role:
         name: escapace.utilities.github_download
         allow_duplicates: true
         public: false
+      vars:
+        github_download_result_var: caller_one_download
 
-    - name: retain the first download result
-      ansible.builtin.set_fact:
-        utilities_test_first_download: '{{ github_download_result }}'
-
-    - name: request metadata again with identical arguments
+    - name: request identical metadata for the second caller
       ansible.builtin.include_role:
         name: escapace.utilities.github_request
         allow_duplicates: true
         public: false
+      vars:
+        github_request_result_var: caller_two_metadata
 
-    - name: download the artifact again with identical arguments
+    - name: download the same artifact for the second caller
       ansible.builtin.include_role:
         name: escapace.utilities.github_download
         allow_duplicates: true
         public: false
+      vars:
+        github_download_result_var: caller_two_download
 
-    - name: verify fresh invocations and stable saved results
+    - name: verify the first caller's results were not overwritten
       ansible.builtin.assert:
         that:
-          - utilities_test_first_metadata.json.attempt == 1
-          - github_request_result.json.attempt == 2
-          - utilities_test_first_download.changed
-          - not github_download_result.changed
+          - caller_one_metadata.json.attempt == 1
+          - caller_two_metadata.json.attempt == 2
+          - caller_one_download.changed
+          - not caller_two_download.changed
           - github_request_return_content is not defined
           - github_download_mode is not defined
+          - github_request_result_var is not defined
+          - github_download_result_var is not defined
+
+    - name: deliberately replace the first caller's metadata result
+      ansible.builtin.include_role:
+        name: escapace.utilities.github_request
+        allow_duplicates: true
+        public: false
+      vars:
+        github_request_result_var: caller_one_metadata
+
+    - name: verify replacement affects only the requested result
+      ansible.builtin.assert:
+        that:
+          - caller_one_metadata.json.attempt == 3
+          - caller_two_metadata.json.attempt == 2
+
+    - name: exercise a failed request targeting an existing result
+      block:
+        - name: request missing metadata
+          ansible.builtin.include_role:
+            name: escapace.utilities.github_request
+            allow_duplicates: true
+            public: false
+          vars:
+            github_request_url: 'http://127.0.0.1:{{ utilities_test_port }}/missing/{{ inventory_hostname }}'
+            github_request_result_var: caller_two_metadata
+
+        - name: reject an unexpectedly successful missing request
+          ansible.builtin.fail:
+            msg: Missing metadata was unexpectedly accepted.
+      rescue:
+        - name: verify failure preserves the last successful caller result
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_task.name == 'github_request report a terminal github metadata failure'
+              - caller_two_metadata.json.attempt == 2
+              - caller_one_metadata.json.attempt == 3
+
+    - name: exercise a failed download targeting an existing result
+      block:
+        - name: download a missing artifact
+          ansible.builtin.include_role:
+            name: escapace.utilities.github_download
+            allow_duplicates: true
+            public: false
+          vars:
+            github_download_url: 'http://127.0.0.1:{{ utilities_test_port }}/archive-missing/{{ inventory_hostname }}'
+            github_download_dest: '{{ utilities_test_directory }}/{{ inventory_hostname }}-missing'
+            github_download_result_var: caller_two_download
+
+        - name: reject an unexpectedly successful missing download
+          ansible.builtin.fail:
+            msg: Missing artifact was unexpectedly accepted.
+      rescue:
+        - name: verify failure preserves the last successful download result
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_task.name == 'github_download report a terminal download failure'
+              - not caller_two_download.changed
+              - caller_two_download.dest == github_download_dest
+              - caller_one_download.changed

@@ -314,11 +314,33 @@ class HttpRetryTests(unittest.TestCase):
             self.assertEqual(len(self.events[("archive-transient", host)]), 2)
             self.assertEqual(len(self.events[("archive-limited", host)]), 1)
 
-    def test_identical_repeated_calls_preserve_saved_results(self):
+    def test_interleaved_calls_keep_caller_owned_results(self):
         self.run_playbook([], playbook="repeated.yaml")
         for host in ("host_a", "host_b"):
-            self.assertEqual(len(self.events[("success", host)]), 2)
+            self.assertEqual(len(self.events[("success", host)]), 3)
+            self.assertEqual(len(self.events[("missing", host)]), 1)
             self.assertEqual(len(self.events[("archive-success", host)]), 1)
+            self.assertEqual(len(self.events[("archive-missing", host)]), 1)
+
+    def test_invalid_result_names_fail_before_requests(self):
+        names = (
+            "",
+            "bad.name",
+            None,
+            True,
+            "ansible_facts",
+            "inventory_hostname",
+            "github_request_url",
+            "github_download_dest",
+            "_escapace_utilities_github_request_done",
+        )
+        cases = [
+            {"kind": kind, "result_var": name, "reason": "result_var"}
+            for kind in ("request", "download")
+            for name in names
+        ]
+        self.run_playbook(cases, playbook="invalid-input.yaml")
+        self.assertEqual(dict(self.events), {})
 
     def test_invalid_inputs_fail_before_requests(self):
         cases = [

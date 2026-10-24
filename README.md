@@ -33,13 +33,24 @@ controller. Each invocation has fresh per-host retry state.
 
 Invoke operations explicitly with `include_role`, `allow_duplicates: true`,
 and `public: false`; do not use metadata dependencies to trigger requests.
-Calls export separate host facts: `github_request_result` and
-`github_download_result`. Copy a result into a caller-owned variable before
-another call to the same helper. `public: false` does not hide exported facts,
-and registering `include_role` does not return the underlying module response.
+Set the required `github_request_result_var` or `github_download_result_var`
+input to a caller-owned fact name, such as `gh_latest_release` or
+`gh_download_response`. Successful calls write the full module response directly
+to that name. Use distinct names to retain independent results, including in
+loops. Reusing a name deliberately replaces it on success; failed calls do not
+change its previous value.
 
-For loops that retain multiple results, put the helper invocation and result
-capture together in a caller-owned task file and loop over `include_tasks`.
+Result names must be lowercase identifiers starting with a letter and containing
+an underscore-separated caller prefix. Names starting with `ansible_`,
+`inventory_`, `playbook_`, `role_`, `group_`, `github_request_`,
+`github_download_`, or `escapace_utilities_` are reserved. Leading underscores,
+dotted paths, and other non-identifier characters are not accepted.
+
+Internal state uses `_escapace_utilities_<role>_` prefixes. It and the chosen
+results are still host-scoped: neither the prefix nor `public: false` provides
+private storage or support for overlapping calls on one host. Callers remain
+responsible for choosing distinct names. Registering `include_role` does not
+return the underlying module response.
 
 ## GitHub retry filters
 
