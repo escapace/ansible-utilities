@@ -1,0 +1,49 @@
+---
+- name: Verify installed utilities filters
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    retry_policy:
+      max_attempts: 4
+      max_wait_seconds: 90
+    retry_state:
+      attempt: 1
+      waited_seconds: 0
+      now_epoch: 1700000000.0
+      jitter_seconds: 0
+    limited_response:
+      status: 429
+      failed: true
+      retry_after: '5'
+  tasks:
+    - name: Verify namespaced metadata decisions without activating a role
+      ansible.builtin.assert:
+        that:
+          - >-
+            limited_response | escapace.utilities.github_metadata_retry(retry_policy, retry_state)
+            == {'action': 'retry', 'delay_seconds': 5}
+          - >-
+            {'status': 200, 'failed': false}
+            | escapace.utilities.github_metadata_retry(retry_policy, retry_state)
+            == {'action': 'success'}
+          - >-
+            limited_response | escapace.utilities.github_metadata_retry(retry_policy, retry_state)
+            == {'action': 'retry', 'delay_seconds': 5}
+          - retry_state.waited_seconds == 0
+          - limited_response.retry_after == '5'
+
+    - name: Verify namespaced archive decisions
+      ansible.builtin.assert:
+        that:
+          - >-
+            {'failed': true, 'status_code': 503}
+            | escapace.utilities.github_archive_retry(retry_policy, retry_state)
+            == {'action': 'retry', 'delay_seconds': 2}
+          - >-
+            {'failed': false}
+            | escapace.utilities.github_archive_retry(retry_policy, retry_state)
+            == {'action': 'success'}
+          - >-
+            ({'failed': true, 'status_code': 429}
+             | escapace.utilities.github_archive_retry(retry_policy, retry_state)).action == 'fail'

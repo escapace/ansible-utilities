@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    branches: [trunk]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python: '3.10'
+            ansible: '2.14.18'
+          - python: '3.14'
+            ansible: '2.21.4'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+      - name: test source and installed collection
+        run: >-
+          uv run --no-project --python "${{ matrix.python }}"
+          --with "ansible-core==${{ matrix.ansible }}"
+          python -W error -m unittest discover -s tests -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+      - run: uv sync --locked
+      - run: uv run black --check plugins tests
+      - run: uv run ansible-lint --offline

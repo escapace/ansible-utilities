@@ -1,0 +1,63 @@
+DOCUMENTATION:
+  name: github_metadata_retry
+  version_added: '0.0.0'
+  short_description: Plan a GitHub metadata retry
+  description:
+    - Calculate a decision without making requests, sleeping, or changing input mappings.
+    - Honor Retry-After and primary rate-limit reset headers.
+    - Without server instructions, secondary limits wait at least 60 seconds and back off exponentially.
+    - Invalid retry headers produce a failure decision.
+  positional: _input, policy, state
+  options:
+    _input:
+      description:
+        - A registered ansible.builtin.uri result with a boolean failed field.
+        - HTTP status is read from status; an absent status on failure is unclassified.
+      type: dict
+      required: true
+    policy:
+      description:
+        - Mapping with positive integer max_attempts and nonnegative integer max_wait_seconds.
+        - max_attempts includes the initial request; max_wait_seconds limits cumulative planned sleeping.
+      type: dict
+      required: true
+    state:
+      description:
+        - Mapping with attempt, waited_seconds, now_epoch, and jitter_seconds.
+        - attempt is a one-based integer; waited_seconds is a nonnegative integer or ASCII decimal string.
+        - now_epoch is a fresh finite numeric UTC epoch timestamp; jitter_seconds is integer 0 or 1.
+        - The attempt and cumulative waiting values cannot exceed the policy limits.
+      type: dict
+      required: true
+  notes:
+    - Invalid input shapes, policy, or state raise an Ansible filter error.
+    - The caller performs requests and waits, handles failure decisions, and tracks per-host retry state.
+    - No role needs to run before using this filter.
+
+EXAMPLES: |
+  - name: calculate a retry decision
+    ansible.builtin.set_fact:
+      retry_plan: >-
+        {{ response | escapace.utilities.github_metadata_retry(
+             {'max_attempts': 4, 'max_wait_seconds': 90},
+             {'attempt': 1, 'waited_seconds': 0,
+              'now_epoch': now(utc=true).timestamp(), 'jitter_seconds': 0}
+           ) }}
+
+RETURN:
+  _value:
+    description: Retry decision. A successful final attempt is allowed.
+    type: dict
+    contains:
+      action:
+        description: One of success, retry, or fail.
+        type: str
+        returned: always
+      delay_seconds:
+        description: Seconds to wait before retrying, including caller-supplied jitter.
+        type: int
+        returned: when action is retry
+      reason:
+        description: Diagnostic explaining why the request cannot be retried.
+        type: str
+        returned: when action is fail
